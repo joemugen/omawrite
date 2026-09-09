@@ -70,6 +70,7 @@ public:
     Q_INVOKABLE bool selectBuffer(const QString &id);
     Q_INVOKABLE bool closeActiveBuffer();
     Q_INVOKABLE bool discardActiveBuffer();
+    Q_INVOKABLE void prepareForApplicationClose();
     Q_INVOKABLE void updateActiveEditorState(int cursorPosition, int selectionStart, int selectionEnd);
     Q_INVOKABLE void openDialog();
     Q_INVOKABLE void open(const QUrl &url);
@@ -157,6 +158,7 @@ private:
     QString m_lastDocumentText;
     QByteArray m_lastKnownFileContents;
     bool m_hasKnownFileContents = false;
+    bool m_applicationClosing = false;
     QString m_recoveryPath;
     std::unique_ptr<QLockFile> m_recoveryLock;
 
