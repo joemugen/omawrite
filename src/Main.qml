@@ -151,11 +151,22 @@ ApplicationWindow {
     }
 
     function restoreActiveCursor() {
-        Qt.callLater(function() {
-            editor.select(backend.activeSelectionStart, backend.activeSelectionEnd);
+        activeBufferRestoreTimer.restart();
+    }
+
+    Timer {
+        id: activeBufferRestoreTimer
+        interval: 100
+        repeat: false
+        onTriggered: {
+            if (editor.text !== backend.activeBufferText) {
+                restart();
+                return;
+            }
             editor.cursorPosition = backend.activeCursorPosition;
             editorFlick.ensureCursorVisible();
-        });
+            backend.finishActiveBufferRestore();
+        }
     }
 
     Shortcut {
@@ -639,12 +650,18 @@ ApplicationWindow {
                     color: win.strongTextColor
                 }
                 onCursorRectangleChanged: editorFlick.ensureCursorVisible()
-                onCursorPositionChanged: backend.updateActiveEditorState(cursorPosition,
-                                                                           selectionStart, selectionEnd)
-                onSelectionStartChanged: backend.updateActiveEditorState(cursorPosition,
-                                                                          selectionStart, selectionEnd)
-                onSelectionEndChanged: backend.updateActiveEditorState(cursorPosition,
-                                                                        selectionStart, selectionEnd)
+                onCursorPositionChanged: {
+                    if (!backend.restoringActiveBuffer)
+                        backend.updateActiveEditorState(cursorPosition, selectionStart, selectionEnd);
+                }
+                onSelectionStartChanged: {
+                    if (!backend.restoringActiveBuffer)
+                        backend.updateActiveEditorState(cursorPosition, selectionStart, selectionEnd);
+                }
+                onSelectionEndChanged: {
+                    if (!backend.restoringActiveBuffer)
+                        backend.updateActiveEditorState(cursorPosition, selectionStart, selectionEnd);
+                }
 
                 function replaceSelectionWith(replacement) {
                     var start = Math.min(selectionStart, selectionEnd);
@@ -859,6 +876,10 @@ ApplicationWindow {
                 onTextChanged: {
                     if (win.searchUpdating)
                         return;
+                    if (backend.restoringActiveBuffer) {
+                        activeBufferRestoreTimer.restart();
+                        return;
+                    }
                     var contentChanged = backend.editorTextChanged();
                     backend.updateActiveEditorState(cursorPosition, selectionStart, selectionEnd);
                     if (win.searchOpen && contentChanged)
