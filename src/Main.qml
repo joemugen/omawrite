@@ -63,6 +63,15 @@ ApplicationWindow {
         unsavedChangesDialog.open();
     }
 
+    function requestCloseTab() {
+        if (!backend.modified) {
+            backend.closeActiveBuffer();
+            return;
+        }
+        pendingAction = "closeTab";
+        unsavedChangesDialog.open();
+    }
+
     function completePendingAction() {
         var action = pendingAction;
         pendingAction = "";
@@ -71,6 +80,8 @@ ApplicationWindow {
             close();
         } else if (action === "open") {
             backend.open(pendingOpenUrl);
+        } else if (action === "closeTab") {
+            backend.discardActiveBuffer();
         }
     }
 
@@ -152,7 +163,7 @@ ApplicationWindow {
     Shortcut {
         sequence: "Ctrl+W"
         context: Qt.ApplicationShortcut
-        onActivated: backend.closeActiveBuffer()
+        onActivated: win.requestCloseTab()
     }
 
     Shortcut {
@@ -364,14 +375,32 @@ ApplicationWindow {
 
             Repeater {
                 model: backend.buffers
-                delegate: Button {
+                delegate: Rectangle {
                     required property var modelData
-                    text: (modelData.modified ? "* " : "")
-                        + (modelData.fileUrl === "" ? "Untitled.md"
-                           : modelData.fileUrl.split("/").pop())
-                    checked: modelData.id === backend.activeBufferId
-                    checkable: true
-                    onClicked: backend.selectBuffer(modelData.id)
+                    width: tabLabel.implicitWidth + 20
+                    height: 28
+                    color: modelData.id === backend.activeBufferId
+                        ? backend.themeAccent
+                        : (win.darkMode ? "#252525" : "#e7e7e7")
+
+                    Label {
+                        id: tabLabel
+                        anchors.centerIn: parent
+                        text: (modelData.modified ? "* " : "")
+                            + (modelData.fileUrl === "" ? "Untitled.md"
+                               : modelData.fileUrl.split("/").pop())
+                        color: modelData.id === backend.activeBufferId
+                            ? "white"
+                            : win.textColor
+                        font.family: "iA Writer Mono S"
+                        font.pixelSize: win.scaledSize(11)
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: backend.selectBuffer(modelData.id)
+                    }
                 }
             }
         }
