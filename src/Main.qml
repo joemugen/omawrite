@@ -144,6 +144,18 @@ ApplicationWindow {
     }
 
     Shortcut {
+        sequence: "Ctrl+T"
+        context: Qt.ApplicationShortcut
+        onActivated: backend.newBuffer()
+    }
+
+    Shortcut {
+        sequence: "Ctrl+W"
+        context: Qt.ApplicationShortcut
+        onActivated: backend.closeActiveBuffer()
+    }
+
+    Shortcut {
         sequence: "Ctrl+H"
         context: Qt.ApplicationShortcut
         onActivated: {
@@ -339,6 +351,31 @@ ApplicationWindow {
     Item {
         anchors.fill: parent
 
+        Row {
+            id: tabStrip
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.topMargin: 8
+            anchors.leftMargin: 12
+            anchors.rightMargin: 12
+            spacing: 4
+            z: 2
+
+            Repeater {
+                model: backend.buffers
+                delegate: Button {
+                    required property var modelData
+                    text: (modelData.modified ? "* " : "")
+                        + (modelData.fileUrl === "" ? "Untitled.md"
+                           : modelData.fileUrl.split("/").pop())
+                    checked: modelData.id === backend.activeBufferId
+                    checkable: true
+                    onClicked: backend.selectBuffer(modelData.id)
+                }
+            }
+        }
+
         Flickable {
             id: editorFlick
             anchors.fill: parent
@@ -533,7 +570,7 @@ ApplicationWindow {
                 id: editor
                 objectName: "sourceEditor"
                 x: Math.round((editorFlick.width - width) / 2)
-                y: Math.max(42, Math.round(win.height * 0.05))
+                y: Math.max(72, Math.round(win.height * 0.05))
                 width: win.editorWidth
                 height: Math.max(editorFlick.height - y - 96, implicitHeight + 20)
                 text: ""
@@ -559,6 +596,12 @@ ApplicationWindow {
                     color: win.strongTextColor
                 }
                 onCursorRectangleChanged: editorFlick.ensureCursorVisible()
+                onCursorPositionChanged: backend.updateActiveEditorState(cursorPosition,
+                                                                           selectionStart, selectionEnd)
+                onSelectionStartChanged: backend.updateActiveEditorState(cursorPosition,
+                                                                          selectionStart, selectionEnd)
+                onSelectionEndChanged: backend.updateActiveEditorState(cursorPosition,
+                                                                        selectionStart, selectionEnd)
 
                 function replaceSelectionWith(replacement) {
                     var start = Math.min(selectionStart, selectionEnd);
@@ -774,6 +817,7 @@ ApplicationWindow {
                     if (win.searchUpdating)
                         return;
                     var contentChanged = backend.editorTextChanged();
+                    backend.updateActiveEditorState(cursorPosition, selectionStart, selectionEnd);
                     if (win.searchOpen && contentChanged)
                         win.updateSearch();
                 }
