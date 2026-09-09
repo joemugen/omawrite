@@ -6,6 +6,7 @@
 #include <QQuickStyle>
 
 #include "backend.h"
+#include "buffersession.h"
 #include "markdownhighlighter.h"
 
 class OmawriteTest : public QObject {
@@ -42,6 +43,66 @@ private slots:
         QCOMPARE(Backend::suggestedFileName(QString()), QStringLiteral("Untitled.md"));
         QCOMPARE(Backend::suggestedFileName(QStringLiteral("Already.md")),
                  QStringLiteral("Already.md"));
+    }
+
+    void restoresOrderedBuffersAndActiveCaret() {
+        QTemporaryDir stateDirectory;
+        QVERIFY(stateDirectory.isValid());
+
+        BufferSession session(stateDirectory.path());
+        const QString first = session.createBuffer();
+        session.updateBuffer(first, QString(), QStringLiteral("first"), 2, 1, 2, true);
+        const QString second = session.createBuffer();
+        session.updateBuffer(second, QString(), QStringLiteral("second"), 4, 4, 4, true);
+        session.selectBuffer(first);
+        QVERIFY(session.saveNow());
+
+        BufferSession restored(stateDirectory.path());
+        QVERIFY(restored.restore());
+        QCOMPARE(restored.activeBufferId(), first);
+        QCOMPARE(restored.buffers().size(), 2);
+        QCOMPARE(restored.buffers().at(0).toMap().value(QStringLiteral("text")),
+                 QStringLiteral("first"));
+        QCOMPARE(restored.buffers().at(0).toMap().value(QStringLiteral("cursorPosition")), 2);
+        QCOMPARE(restored.buffers().at(0).toMap().value(QStringLiteral("selectionStart")), 1);
+        QCOMPARE(restored.buffers().at(0).toMap().value(QStringLiteral("selectionEnd")), 2);
+        QCOMPARE(restored.buffers().at(1).toMap().value(QStringLiteral("text")),
+                 QStringLiteral("second"));
+    }
+
+    void activatesExistingBufferForSameFile() {
+        QTemporaryDir stateDirectory;
+        QVERIFY(stateDirectory.isValid());
+
+        BufferSession session(stateDirectory.path());
+        const QUrl fileUrl = QUrl::fromLocalFile(QStringLiteral("/tmp/note.md"));
+        const QString first = session.openBuffer(fileUrl, QStringLiteral("first"));
+        const QString second = session.openBuffer(fileUrl, QStringLiteral("second"));
+
+        QCOMPARE(second, first);
+        QCOMPARE(session.buffers().size(), 1);
+        QCOMPARE(session.buffers().constFirst().toMap().value(QStringLiteral("text")),
+                 QStringLiteral("first"));
+    }
+
+    void sessionSnapshotsDoNotModifyUserFiles() {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+
+        const QString path = directory.filePath(QStringLiteral("note.md"));
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        QCOMPARE(file.write("original"), qint64(8));
+        file.close();
+
+        BufferSession session(directory.filePath(QStringLiteral("state")));
+        const QString id = session.openBuffer(QUrl::fromLocalFile(path), QStringLiteral("edited"));
+        session.updateBuffer(id, QUrl::fromLocalFile(path).toString(), QStringLiteral("edited"),
+                             6, 6, 6, true);
+        QVERIFY(session.saveNow());
+
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        QCOMPARE(file.readAll(), QByteArray("original"));
     }
 
     void findsInlineMarkdownRanges() {
