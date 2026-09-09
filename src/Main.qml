@@ -148,6 +148,14 @@ ApplicationWindow {
         editor.forceActiveFocus();
     }
 
+    function restoreActiveCursor() {
+        Qt.callLater(function() {
+            editor.select(backend.activeSelectionStart, backend.activeSelectionEnd);
+            editor.cursorPosition = backend.activeCursorPosition;
+            editorFlick.ensureCursorVisible();
+        });
+    }
+
     Shortcut {
         sequence: "Ctrl+S"
         context: Qt.ApplicationShortcut
@@ -287,6 +295,10 @@ ApplicationWindow {
             externalChangeDialog.deleted = deleted;
             externalChangeDialog.locallyModified = locallyModified;
             externalChangeDialog.open();
+        }
+
+        function onActiveBufferChanged() {
+            win.restoreActiveCursor();
         }
     }
 
@@ -864,6 +876,7 @@ ApplicationWindow {
 
                 Component.onCompleted: {
                     backend.attachDocument(textDocument);
+                    win.restoreActiveCursor();
                     forceActiveFocus();
                 }
             }
