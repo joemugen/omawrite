@@ -194,27 +194,45 @@ ApplicationWindow {
     }
 
     Shortcut {
+        objectName: "newTabShortcut"
         sequence: "Ctrl+T"
-        context: Qt.ApplicationShortcut
+        context: Qt.WindowShortcut
         onActivated: backend.newBuffer()
     }
 
     Shortcut {
+        objectName: "closeTabShortcut"
         sequence: "Ctrl+W"
-        context: Qt.ApplicationShortcut
+        context: Qt.WindowShortcut
         onActivated: win.requestCloseTab()
     }
 
     Shortcut {
+        objectName: "nextTabShortcut"
         sequence: "Ctrl+Tab"
-        context: Qt.ApplicationShortcut
+        context: Qt.WindowShortcut
         onActivated: win.selectAdjacentTab(1)
     }
 
     Shortcut {
+        objectName: "previousTabShortcut"
         sequence: "Ctrl+Shift+Tab"
-        context: Qt.ApplicationShortcut
+        context: Qt.WindowShortcut
         onActivated: win.selectAdjacentTab(-1)
+    }
+
+    Shortcut {
+        objectName: "moveTabLeftShortcut"
+        sequence: "Ctrl+Shift+PgUp"
+        context: Qt.WindowShortcut
+        onActivated: backend.moveActiveBuffer(-1)
+    }
+
+    Shortcut {
+        objectName: "moveTabRightShortcut"
+        sequence: "Ctrl+Shift+PgDown"
+        context: Qt.WindowShortcut
+        onActivated: backend.moveActiveBuffer(1)
     }
 
     Shortcut {
@@ -259,8 +277,9 @@ ApplicationWindow {
     }
 
     Shortcut {
+        objectName: "newWindowShortcut"
         sequence: "Ctrl+N"
-        context: Qt.ApplicationShortcut
+        context: Qt.WindowShortcut
         onActivated: backend.newWindow()
     }
 
@@ -409,7 +428,7 @@ ApplicationWindow {
         standardButtons: Dialog.Close
         anchors.centerIn: parent
         contentItem: Label {
-            text: "Ctrl+S  Save\nCtrl+Shift+S  Save As\nCtrl+O  Open\nCtrl+T  New Tab\nCtrl+W  Close Tab\nCtrl+Tab  Next Tab\nCtrl+Shift+Tab  Previous Tab\nCtrl+N  New Window\nCtrl+F  Find\nCtrl+H  Find and Replace\nCtrl+B  Bold\nCtrl+I  Italic\nCtrl+K  Link\nCtrl+P  Print\nF11 / Super+F  Fullscreen\nCtrl+?  Shortcuts"
+            text: "Ctrl+S  Save\nCtrl+Shift+S  Save As\nCtrl+O  Open\nCtrl+T  New Tab\nCtrl+W  Close Tab\nCtrl+Tab  Next Tab\nCtrl+Shift+Tab  Previous Tab\nCtrl+Shift+PgUp  Move Tab Left\nCtrl+Shift+PgDown  Move Tab Right\nCtrl+N  New Window\nCtrl+F  Find\nCtrl+H  Find and Replace\nCtrl+B  Bold\nCtrl+I  Italic\nCtrl+K  Link\nCtrl+P  Print\nF11 / Super+F  Fullscreen\nCtrl+?  Shortcuts"
             lineHeight: 1.5
         }
     }
