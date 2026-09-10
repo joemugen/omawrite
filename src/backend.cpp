@@ -399,6 +399,26 @@ void Backend::discardRecovery() {
 }
 
 void Backend::reloadFromDisk() {
+    if (m_workspaceSession) {
+        QFile file(m_fileUrl.toLocalFile());
+        if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            setStatus(QStringLiteral("Could not reload %1.").arg(fileName()));
+            return;
+        }
+        const QByteArray contents = file.readAll();
+        m_workspaceSession->updateTab(m_workspaceWindowId, activeBufferId(), m_fileUrl,
+                                      QString::fromUtf8(contents), 0, 0, 0, false);
+        m_workspaceSession->setExternalChange(activeBufferId(), false);
+        m_workspaceSession->saveNow();
+        m_lastKnownFileContents = contents;
+        m_hasKnownFileContents = true;
+        loadActiveBuffer();
+        emit buffersChanged();
+        emit activeBufferChanged();
+        setStatus(QStringLiteral("Reloaded %1").arg(fileName()));
+        return;
+    }
+
     if (m_fileUrl.isLocalFile())
         open(m_fileUrl);
 }
@@ -413,9 +433,20 @@ void Backend::keepExternalVersion() {
         m_hasKnownFileContents = false;
     }
     setModified(true);
+    if (m_workspaceSession)
+        m_workspaceSession->setExternalChange(activeBufferId(), false);
     persistActiveBuffer();
     watchCurrentFile();
     setStatus(QStringLiteral("Kept your version"));
+}
+
+void Backend::reportExternalChange(bool deleted) {
+    emit buffersChanged();
+    emit externalChangeDetected(deleted, m_modified);
+}
+
+void Backend::refreshBuffers() {
+    emit buffersChanged();
 }
 
 void Backend::printDocument() {
@@ -775,6 +806,9 @@ void Backend::clearRecovery() {
 }
 
 void Backend::watchCurrentFile() {
+    if (m_workspaceSession)
+        return;
+
     const QStringList watched = m_fileWatcher.files();
     if (!watched.isEmpty())
         m_fileWatcher.removePaths(watched);

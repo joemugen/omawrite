@@ -152,7 +152,8 @@ private slots:
                               {QStringLiteral("cursorPosition"), 0},
                               {QStringLiteral("selectionStart"), 0},
                               {QStringLiteral("selectionEnd"), 0},
-                              {QStringLiteral("modified"), false}};
+                              {QStringLiteral("modified"), false},
+                              {QStringLiteral("externalChanged"), false}};
         const QJsonObject duplicateTab{{QStringLiteral("id"), QStringLiteral("second-tab")},
                                        {QStringLiteral("fileUrl"),
                                         QUrl::fromLocalFile(QStringLiteral("/tmp/note.md")).toString()},
@@ -160,7 +161,8 @@ private slots:
                                        {QStringLiteral("cursorPosition"), 0},
                                        {QStringLiteral("selectionStart"), 0},
                                        {QStringLiteral("selectionEnd"), 0},
-                                       {QStringLiteral("modified"), false}};
+                                       {QStringLiteral("modified"), false},
+                                       {QStringLiteral("externalChanged"), false}};
         const QJsonObject window{{QStringLiteral("id"), QStringLiteral("window")},
                                  {QStringLiteral("x"), 0},
                                  {QStringLiteral("y"), 0},
@@ -171,7 +173,7 @@ private slots:
                                  {QStringLiteral("tabs"), QJsonArray{tab, duplicateTab}}};
         QFile file(stateDirectory.filePath(QStringLiteral("session.json")));
         QVERIFY(file.open(QIODevice::WriteOnly));
-        file.write(QJsonDocument(QJsonObject{{QStringLiteral("version"), 1},
+        file.write(QJsonDocument(QJsonObject{{QStringLiteral("version"), 2},
                                               {QStringLiteral("windows"), QJsonArray{window}}})
                        .toJson(QJsonDocument::Compact));
         file.close();
@@ -290,6 +292,38 @@ private slots:
         QVERIFY(!session.findOpenLocalFile(QUrl::fromLocalFile(filePath)).isEmpty());
         QCOMPARE(session.windows().at(0).toMap().value(QStringLiteral("tabs")).toList().size(), 2);
         QCOMPARE(session.windows().at(1).toMap().value(QStringLiteral("tabs")).toList().size(), 1);
+    }
+
+    void windowManagerMarksBackgroundExternalChangesWithoutPrompting() {
+        QTemporaryDir stateDirectory;
+        QVERIFY(stateDirectory.isValid());
+        const QString filePath = stateDirectory.filePath(QStringLiteral("note.md"));
+        QFile file(filePath);
+        QVERIFY(file.open(QIODevice::WriteOnly | QIODevice::Text));
+        file.write("first");
+        file.close();
+
+        const QString mainQmlPath = QFINDTESTDATA("../src/Main.qml");
+        QVERIFY(!mainQmlPath.isEmpty());
+
+        WorkspaceSession session(stateDirectory.path());
+        QQmlEngine engine;
+        WindowManager manager(&session, &engine, QUrl::fromLocalFile(mainQmlPath));
+        Backend *backend = manager.createWindow();
+        QVERIFY(backend);
+        backend->open(QUrl::fromLocalFile(filePath));
+        const QString fileTab = backend->activeBufferId();
+        backend->newBuffer();
+        QSignalSpy externalChangeSpy(backend, &Backend::externalChangeDetected);
+
+        QVERIFY(file.open(QIODevice::WriteOnly | QIODevice::Text));
+        file.write("second");
+        file.close();
+
+        QTRY_VERIFY(session.tab(fileTab).value(QStringLiteral("externalChanged")).toBool());
+        QCOMPARE(externalChangeSpy.count(), 0);
+        QVERIFY(backend->selectBuffer(fileTab));
+        QTRY_COMPARE(externalChangeSpy.count(), 1);
     }
 
     void windowManagerRestoresWritingWindows() {
